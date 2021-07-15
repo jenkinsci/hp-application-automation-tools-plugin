@@ -20,4 +20,8 @@ com.hp.octane.integrations.dto.scm.impl.SCMRepositoryImpl
 com.hp.octane.integrations.dto.scm.impl.PullRequestImpl
 com.hp.octane.integrations.dto.scm.impl.BranchImpl
 com.hp.octane.integrations.services.pullrequestsandbranches.BranchSyncResult
+com.hp.octane.integrations.executor.converters.MbtTest
+com.hp.octane.integrations.executor.TestsToRunConverterResult
+com.hp.octane.integrations.executor.TestToRunData
+com.hp.octane.integrations.executor.TestsToRunFramework
 

@@ -41,6 +41,7 @@ import com.microfocus.application.automation.tools.octane.executor.UftConstants;
 import com.microfocus.application.automation.tools.octane.model.processors.projects.JobProcessorFactory;
 import hudson.*;
 import hudson.model.*;
+import hudson.remoting.VirtualChannel;
 import hudson.tasks.BuildStepDescriptor;
 import hudson.tasks.Builder;
 import hudson.util.FormValidation;
@@ -48,6 +49,7 @@ import jenkins.model.Jenkins;
 import jenkins.tasks.SimpleBuildStep;
 import org.apache.commons.lang.StringUtils;
 import org.jenkinsci.Symbol;
+import org.jenkinsci.remoting.RoleChecker;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.QueryParameter;
 
@@ -56,7 +58,10 @@ import java.io.*;
 import java.net.URL;
 import java.text.Format;
 import java.text.SimpleDateFormat;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.List;
+import java.util.Properties;
 import java.util.stream.Collectors;
 
 import static com.microfocus.application.automation.tools.run.RunFromFileBuilder.HP_TOOLS_LAUNCHER_EXE;
@@ -139,18 +144,21 @@ public class TestsToRunConverterBuilder extends Builder implements SimpleBuildSt
 
 
             TestsToRunFramework testsToRunFramework = TestsToRunFramework.fromValue(frameworkName);
-            if(rawTests.contains("mbtData")) { //MBT needs to know real path to tests and not ${workspace}
+            boolean isMbt = rawTests.contains("mbtData");
+            TestsToRunConverterResult convertResult = null;
+            if (isMbt) {
+                //MBT needs to know real path to tests and not ${workspace}
+                //MBT needs to run on slave  to extract function libraries from checked out files
                 try {
                     EnvVars env = build.getEnvironment(listener);
                     executingDirectory = env.expand(executingDirectory);
                 } catch (IOException | InterruptedException e) {
                     listener.error("Failed loading build environment " + e);
                 }
+                convertResult = filePath.act(new GetConvertResult(testsToRunFramework, frameworkFormat, rawTests, executingDirectory));
+            } else {
+                convertResult = (new GetConvertResult(testsToRunFramework, frameworkFormat, rawTests, executingDirectory)).invoke(null, null);
             }
-
-            TestsToRunConverterResult convertResult = TestsToRunConvertersFactory.createConverter(testsToRunFramework)
-                    .setFormat(frameworkFormat)
-                    .convert(rawTests, executingDirectory);
 
             if (convertResult.getMbtTests() != null) {
                 createMTBTests(convertResult.getMbtTests(), build, filePath, launcher, listener);
@@ -246,8 +254,6 @@ public class TestsToRunConverterBuilder extends Builder implements SimpleBuildSt
             if (!cmdLineExe.exists()) {
                 cmdLineExe.copyFrom(cmdExeUrl);
                 printToConsole(listener, "HPToolLauncher copied to " + cmdLineExe.getRemote());
-            } else {
-                printToConsole(listener, "HPToolLauncher already exist in " + cmdLineExe.getRemote());
             }
 
         } catch (IOException | InterruptedException e) {
@@ -294,6 +300,33 @@ public class TestsToRunConverterBuilder extends Builder implements SimpleBuildSt
     private static void printToConsole(TaskListener listener, String msg) {
         listener.getLogger().println(TestsToRunConverterBuilder.class.getSimpleName() + " : " + msg);
     }
+
+    private static class GetConvertResult implements FilePath.FileCallable<TestsToRunConverterResult>{
+
+        private TestsToRunFramework framework;
+        private String rawTests;
+        private String executingDirectory;
+        private String format;
+
+        public GetConvertResult(TestsToRunFramework framework, String format, String rawTests,String executingDirectory){
+            this.framework=framework;
+            this.rawTests=rawTests;
+            this.format=format;
+            this.executingDirectory=executingDirectory;
+        }
+        @Override
+        public TestsToRunConverterResult invoke(File file, VirtualChannel virtualChannel) throws IOException, InterruptedException {
+            return  TestsToRunConvertersFactory.createConverter(framework)
+                    .setFormat(format)
+                    .convert(rawTests, executingDirectory);
+        }
+
+        @Override
+        public void checkRoles(RoleChecker roleChecker) throws SecurityException {
+            //no need to check roles as this can be run on master and on slave
+        }
+    }
+
 
     @Symbol("convertTestsToRun")
     @Extension

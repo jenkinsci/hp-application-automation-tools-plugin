@@ -140,14 +140,16 @@ namespace HpToolsLauncher
         private string GetResourceFileNameAndAddToUftFoldersIfRequired(Application qtpApplication, string filePath)
         {
             //file path might be full or just file name;
-            FileInfo fi = new FileInfo(filePath);
-            string fileName = fi.Name;
-            string location = qtpApplication.Folders.Locate(fileName);
+            string location = qtpApplication.Folders.Locate(filePath);
             if (!string.IsNullOrEmpty(location))
             {
-                ConsoleWriter.WriteLine(string.Format("Adding resources : {0} - location is already defined in UFT.", fileName));
+                ConsoleWriter.WriteLine(string.Format("Adding resources : {0} - done", filePath));
             }
             else
+            {
+                ConsoleWriter.WriteLine(string.Format("Adding resources : {0} - failed to find file in repository. Please check correctness of resource location.", filePath));
+            }
+            /*else
             {
                 string[] allFiles = Directory.GetFiles(repoFolder, fileName, SearchOption.AllDirectories);
                 if (allFiles.Length == 0)
@@ -195,9 +197,9 @@ namespace HpToolsLauncher
                     ConsoleWriter.WriteLine(string.Format("Adding resources : {0} - folder {1} is added to settings", fileName, directoryPath.Replace(repoFolder,"")));
                     qtpApplication.Folders.Add(directoryPath);
                 }
-            }
+            }*/
 
-            return fileName;
+            return filePath;
         }
 
         private void LoadNeededAddins(Application _qtpApplication, IEnumerable<String> fileNames)
